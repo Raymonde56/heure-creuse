@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#E23428">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+</style>
+</head>
+<body>
+<title>Heure creuse</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500..900&family=Instrument+Sans:wght@400..700&display=swap" rel="stylesheet">
+<style>
+/* Concept: trois écrans simples (Maintenant, Semaine, Équipe), des mots de tous les jours,
+   rouge pour "beaucoup de monde", jaune pour "peu de monde". */
+:root {
+  --bg: #FFFFFF;
+  --surface: #FFF8E1;
+  --fg: #2A1A12;
+  --muted: #7A5F4E;
+  --line: #F0DFA6;
+  --red: #E23428;
+  --yellow: #FDBA21;
+  --heat-lo: #FFF0B3;
+  --heat-hi: #E23428;
+  --focus: #1F5FD6;
+  --f-display: 'Archivo', 'Arial Narrow', system-ui, sans-serif;
+  --f-body: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1B1210; --surface: #2B1D18; --fg: #FFF3DC; --muted: #CBB29A; --line: #4F3A30;
+    --heat-lo: #5A4410; --heat-hi: #FF4A38; --focus: #8FB4FF; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1B1210; --surface: #2B1D18; --fg: #FFF3DC; --muted: #CBB29A; --line: #4F3A30;
+  --heat-lo: #5A4410; --heat-hi: #FF4A38; --focus: #8FB4FF; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg);
+  font: 16px/1.5 var(--f-body);
+  padding-block: 16px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; }
+.muted { color: var(--muted); }
+
+/* En-tête */
+.head { background: var(--red); color: #fff; border-radius: 16px; padding: 16px 16px 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+h1 { font-weight: 850; font-stretch: 115%; font-size: clamp(30px, 9vw, 44px); line-height: .95; }
+.resto { color: #FFE9A8; margin-top: 6px; font-size: 14px; overflow-wrap: anywhere; }
+.gear { display: inline-flex; align-items: center; gap: 8px; flex: none; background: var(--yellow); color: #2A1A12; border: 0; border-radius: 999px; padding: 9px 14px; font-weight: 650; }
+.gear svg { width: 18px; height: 18px; }
+
+/* Onglets */
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.tab { background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 12px 6px; font-family: var(--f-display); font-weight: 750; font-stretch: 105%; font-size: 16px; }
+.tab[aria-selected="true"] { background: var(--yellow); border-color: var(--yellow); color: #2A1A12; }
+.panel { display: flex; flex-direction: column; gap: 22px; }
+
+/* Maintenant */
+.now { background: var(--surface); border: 2px solid var(--yellow); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+.now .when { font-size: 14px; color: var(--muted); }
+.now .lvl { display: flex; align-items: center; gap: 14px; }
+.dot { flex: none; width: 26px; height: 26px; border-radius: 50%; background: color-mix(in oklab, var(--heat-hi) calc(var(--p) * 1%), var(--heat-lo)); border: 2px solid color-mix(in oklab, var(--fg) 25%, transparent); }
+.lvl-t { font-family: var(--f-display); font-weight: 900; font-stretch: 112%; font-size: clamp(30px, 9vw, 44px); line-height: 1; }
+.now .sub { font-size: 17px; }
+.now .next { font-weight: 650; }
+.strip-h { font-size: 14px; color: var(--muted); margin-top: 6px; }
+.strip { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.mini { flex: 1 0 38px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 2px 4px; border-radius: 8px; }
+.mini.first { background: color-mix(in oklab, var(--fg) 8%, transparent); }
+.m-bar { width: 100%; max-width: 30px; height: 56px; display: flex; align-items: flex-end; }
+.m-bar i { display: block; width: 100%; border-radius: 4px 4px 0 0; background: color-mix(in oklab, var(--heat-hi) calc(var(--p) * 1%), var(--heat-lo)); }
+.mini em { font-style: normal; font-size: 12px; color: var(--muted); font-weight: 600; }
+.key { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.key .bar { flex: 0 1 120px; height: 8px; border-radius: 99px; background: linear-gradient(90deg, var(--heat-lo), var(--heat-hi)); }
+
+h2 { font-weight: 800; font-stretch: 105%; font-size: 22px; line-height: 1.2; }
+.lead { color: var(--muted); margin-top: 4px; }
+.votes { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
+.vote { display: flex; align-items: center; gap: 14px; text-align: left; background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 14px 16px; min-height: 72px; }
+.vote:hover { border-color: var(--red); }
+.vote:active { transform: translateY(1px); }
+.vote b { display: block; font-family: var(--f-display); font-weight: 750; font-stretch: 105%; font-size: 18px; line-height: 1.15; }
+.vote small { display: block; font-size: 14px; color: var(--muted); margin-top: 2px; }
+.who { font-size: 14px; color: var(--muted); margin-top: 10px; }
+details.other { margin-top: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+details.other summary { cursor: pointer; padding: 12px 16px; font-weight: 600; }
+.other-body { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; padding: 0 16px 16px; }
+.fld { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1 1 120px; }
+.fld label { font-size: 14px; font-weight: 600; }
+select, input[type="text"], textarea { width: 100%; min-width: 0; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 11px; }
+textarea { font-size: 13px; resize: vertical; min-height: 84px; }
+.btn { background: var(--yellow); color: #2A1A12; border: 0; border-radius: 10px; padding: 11px 16px; font-weight: 700; }
+.btn.alt { background: transparent; color: var(--fg); border: 1px solid var(--line); font-weight: 600; }
+.btn.danger { background: var(--red); color: #fff; }
+
+/* Jours */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+.chip { background: var(--surface); border: 1.5px solid var(--line); border-radius: 999px; padding: 8px 14px; font-weight: 650; }
+.chip[aria-checked="true"] { background: var(--red); color: #fff; border-color: var(--red); }
+
+/* Semaine */
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 12px 14px; margin-top: 12px; }
+.heat { display: grid; grid-template-columns: 32px repeat(var(--cols), minmax(17px, 1fr)); gap: 3px; }
+.h-hd { font-size: 10px; line-height: 1; color: var(--muted); text-align: center; padding-bottom: 3px; }
+.h-day { font-size: 12px; font-weight: 700; color: var(--muted); align-self: center; }
+.h-day.is-today { color: var(--red); }
+.cell { position: relative; height: 32px; border: 0; border-radius: 4px; padding: 0; background: color-mix(in oklab, var(--heat-hi) calc(var(--p) * 1%), var(--heat-lo)); }
+.cell.now { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--fg); z-index: 1; }
+.cell.sel { outline: 3px solid var(--fg); outline-offset: 1px; z-index: 2; }
+.detail { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 4px; }
+.detail strong { font-family: var(--f-display); font-weight: 750; font-stretch: 105%; font-size: 18px; }
+.d-t { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pill { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 11px 2px 6px; font-size: 14px; font-weight: 600; background: var(--bg); white-space: nowrap; }
+.pill i { width: 14px; height: 14px; border-radius: 50%; background: color-mix(in oklab, var(--heat-hi) calc(var(--p) * 1%), var(--heat-lo)); border: 1px solid color-mix(in oklab, var(--fg) 25%, transparent); }
+.lines { margin: 12px 0 0; display: flex; flex-direction: column; }
+.lines div { display: flex; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+.lines dt { color: var(--muted); }
+.lines dd { margin: 0; font-weight: 700; text-align: right; }
+
+/* Équipe */
+.crew { display: flex; flex-direction: column; gap: 5px; margin-top: 14px; }
+.crew-row { display: grid; grid-template-columns: 38px 1fr 64px 70px; align-items: center; gap: 10px; font-size: 14px; }
+.crew-row .t { font-weight: 700; color: var(--muted); }
+.crew-row.cur .t { color: var(--red); }
+.crew-bar { height: 16px; border-radius: 5px; background: var(--surface); border: 1px solid var(--line); overflow: hidden; }
+.crew-bar i { display: block; height: 100%; background: color-mix(in oklab, var(--heat-hi) calc(var(--p) * 1%), var(--heat-lo)); }
+.crew-row b { text-align: right; font-variant-numeric: tabular-nums; }
+.crew-row em { font-style: normal; color: var(--muted); text-align: right; font-size: 13px; }
+.note { font-size: 14px; color: var(--muted); }
+.empty { border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; color: var(--muted); }
+
+/* Paramètres */
+.sheet { position: fixed; inset: 0; z-index: 50; background: var(--bg); overflow-y: auto; padding-block: max(16px, env(safe-area-inset-top, 0px)) max(32px, env(safe-area-inset-bottom, 0px)); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.sheet-in { max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.sheet-h { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.sheet h2 { font-size: 28px; }
+.grp { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; border-top: 2px solid var(--line); }
+.grp h3 { font-weight: 750; font-stretch: 105%; font-size: 18px; }
+.row2 { display: flex; gap: 10px; flex-wrap: wrap; }
+.check { display: flex; gap: 10px; align-items: flex-start; }
+.check input { margin-top: 4px; width: 18px; height: 18px; flex: none; }
+.recent { list-style: none; margin: 0; padding: 0; }
+.recent li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.recent button { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 5px 11px; font-size: 14px; }
+.recent button:hover { border-color: var(--red); color: var(--red); }
+.msg { font-size: 14px; align-self: center; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 60; display: flex; align-items: center; gap: 14px; background: var(--fg); color: var(--bg); border-radius: 12px; padding: 12px 16px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: calc(100% - 32px); }
+.toast button { background: none; border: 0; color: inherit; font-weight: 700; text-decoration: underline; padding: 2px 4px; }
+@media (prefers-reduced-motion: no-preference) { .vote, .cell { transition: transform .08s, border-color .12s; } }
+html { -webkit-text-size-adjust: 100%; }
+button, select, summary { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.chip, .tab, .btn, .gear, .recent button { min-height: 44px; }
+.cell { min-height: 32px; }
+
+/* Écran de chargement */
+.splash { position: fixed; inset: 0; z-index: 100; background: var(--red); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px; text-align: center; transition: opacity .4s ease; animation: splash-safety .01s 3.2s forwards; }
+.splash.out { opacity: 0; pointer-events: none; }
+.splash h2 { font-family: var(--f-display); font-weight: 850; font-stretch: 115%; font-size: clamp(32px, 10vw, 46px); line-height: 1; }
+.splash p { color: #FFE9A8; font-size: 16px; }
+.s-bars { display: flex; align-items: flex-end; gap: 8px; height: 84px; }
+.s-bars i { display: block; width: 16px; height: 100%; border-radius: 6px 6px 0 0; background: var(--yellow); transform-origin: bottom; transform: scaleY(.25); animation: rise 1.1s ease-in-out infinite; }
+.s-bars i:nth-child(1) { animation-delay: 0s; }
+.s-bars i:nth-child(2) { animation-delay: .1s; }
+.s-bars i:nth-child(3) { animation-delay: .2s; }
+.s-bars i:nth-child(4) { animation-delay: .3s; }
+.s-bars i:nth-child(5) { animation-delay: .4s; }
+.s-bars i:nth-child(6) { animation-delay: .5s; }
+.s-bars i:nth-child(7) { animation-delay: .6s; }
+@keyframes rise { 0%, 100% { transform: scaleY(.25); } 50% { transform: scaleY(1); } }
+@keyframes splash-safety { to { opacity: 0; visibility: hidden; pointer-events: none; } }
+@media (prefers-reduced-motion: reduce) { .s-bars i { animation: none; transform: scaleY(.7); } }
+</style>
+
+<div class="splash" id="splash" aria-hidden="true">
+  <div class="s-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+  <h2>Heure creuse</h2>
+  <p>Je prépare les prévisions…</p>
+</div>
+
+<div class="wrap">
+  <header class="head">
+    <div style="min-width:0">
+      <h1>Heure creuse</h1>
+      <p class="resto" id="resto"></p>
+    </div>
+    <button class="gear" id="open-settings" type="button" aria-haspopup="dialog">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+      Réglages
+    </button>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Écrans">
+    <button class="tab" role="tab" id="tab-now" data-tab="now" aria-selected="true" aria-controls="p-now" type="button">Maintenant</button>
+    <button class="tab" role="tab" id="tab-week" data-tab="week" aria-selected="false" aria-controls="p-week" type="button">Semaine</button>
+    <button class="tab" role="tab" id="tab-team" data-tab="team" aria-selected="false" aria-controls="p-team" type="button">Équipe</button>
+  </nav>
+
+  <!-- Écran 1 : Maintenant -->
+  <main class="panel" id="p-now" role="tabpanel" aria-labelledby="tab-now">
+    <section class="now" aria-live="polite" aria-label="Affluence en ce moment">
+      <p class="when" id="n-when"></p>
+      <div class="lvl"><span class="dot" id="n-dot" style="--p:0"></span><span class="lvl-t" id="n-lvl"></span></div>
+      <p class="sub" id="n-sub"></p>
+      <p class="next" id="n-next"></p>
+      <p class="strip-h">Les prochaines heures</p>
+      <div class="strip" id="strip"></div>
+      <div class="key"><span>moins</span><span class="bar"></span><span>plus de monde</span></div>
+    </section>
+
+    <section aria-labelledby="h-vote">
+      <h2 id="h-vote">Tu es au restaurant ?</h2>
+      <p class="lead">Dis-nous comment c'est. Un tap suffit, l'heure se note toute seule.</p>
+      <div class="votes">
+        <button class="vote" type="button" data-level="1"><span class="dot" style="--p:15"></span><span><b>Peu de monde</b><small>Pas d'attente</small></span></button>
+        <button class="vote" type="button" data-level="2"><span class="dot" style="--p:50"></span><span><b>Normal</b><small>Ça avance bien</small></span></button>
+        <button class="vote" type="button" data-level="3"><span class="dot" style="--p:85"></span><span><b>Beaucoup de monde</b><small>Il y a la queue</small></span></button>
+      </div>
+      <p class="who" id="who"></p>
+      <details class="other">
+        <summary>Ajouter pour une autre heure</summary>
+        <div class="other-body">
+          <div class="fld"><label for="o-day">Jour</label><select id="o-day"></select></div>
+          <div class="fld"><label for="o-hour">Heure</label><select id="o-hour"></select></div>
+          <div class="fld"><label for="o-level">C'était comment ?</label>
+            <select id="o-level"><option value="1">Peu de monde</option><option value="2" selected>Normal</option><option value="3">Beaucoup de monde</option></select></div>
+          <button class="btn" id="o-add" type="button">Ajouter</button>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <!-- Écran 2 : Semaine -->
+  <main class="panel" id="p-week" role="tabpanel" aria-labelledby="tab-week" hidden>
+    <section aria-labelledby="h-heat">
+      <h2 id="h-heat">Quand y a-t-il du monde ?</h2>
+      <p class="lead">Chaque case est une heure. Plus c'est rouge, plus il y a de monde. Touche une case pour voir.</p>
+      <div class="board">
+        <div style="overflow-x:auto"><div class="heat" id="heat" role="group" aria-label="Affluence par jour et par heure"></div></div>
+        <div class="key" style="margin-top:12px"><span>peu de monde</span><span class="bar"></span><span>beaucoup</span></div>
+        <div class="detail" id="detail" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section aria-labelledby="h-best">
+      <h2 id="h-best">Les meilleurs moments</h2>
+      <div class="chips" data-chips role="radiogroup" aria-label="Jour de la semaine"></div>
+      <dl class="lines" id="best"></dl>
+    </section>
+
+    <section aria-labelledby="h-brief">
+      <h2 id="h-brief">En bref</h2>
+      <dl class="lines" id="brief"></dl>
+      <p class="note" id="brief-note" style="margin-top:10px"></p>
+    </section>
+  </main>
+
+  <!-- Écran 3 : Équipe -->
+  <main class="panel" id="p-team" role="tabpanel" aria-labelledby="tab-team" hidden>
+    <section aria-labelledby="h-crew">
+      <h2 id="h-crew">Combien de personnes ?</h2>
+      <p class="lead">Pour chaque heure, le nombre de personnes qui seraient utiles au restaurant.</p>
+      <div class="chips" data-chips role="radiogroup" aria-label="Jour de la semaine"></div>
+      <dl class="lines" id="crew-sum"></dl>
+      <div class="crew" id="crew" role="table" aria-label="Équipe conseillée par heure"></div>
+      <p class="note" style="margin-top:12px">Ces chiffres sont indicatifs. Tu peux régler l'équipe minimum et maximum dans les Réglages.</p>
+    </section>
+  </main>
+</div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="h-set" hidden>
+  <div class="sheet-in">
+    <div class="sheet-h"><h2 id="h-set">Réglages</h2><button class="btn alt" id="close-settings" type="button">Fermer</button></div>
+
+    <div class="grp">
+      <h3>Le restaurant</h3>
+      <div class="fld"><label for="s-name">Nom</label><input type="text" id="s-name" maxlength="60" autocomplete="off"></div>
+      <div class="row2">
+        <div class="fld"><label for="s-open">Ouvre à</label><select id="s-open"></select></div>
+        <div class="fld"><label for="s-close">Ferme à</label><select id="s-close"></select></div>
+      </div>
+      <p class="note">Seules ces heures apparaissent dans l'appli.</p>
+    </div>
+
+    <div class="grp">
+      <h3>L'équipe</h3>
+      <div class="row2">
+        <div class="fld"><label for="s-cmin">Minimum (peu de monde)</label><select id="s-cmin"></select></div>
+        <div class="fld"><label for="s-cmax">Maximum (beaucoup de monde)</label><select id="s-cmax"></select></div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <h3>Les prévisions</h3>
+      <div class="fld"><label for="s-trust">À quelle vitesse tes retours changent les prévisions</label>
+        <select id="s-trust"><option value="prudent">Lentement : il faut plusieurs retours</option><option value="equilibre">Normalement</option><option value="reactif">Vite : un seul retour compte beaucoup</option></select></div>
+      <label class="check" for="s-smooth"><input type="checkbox" id="s-smooth"><span>Un retour compte aussi un peu pour l'heure d'avant et l'heure d'après.</span></label>
+      <p class="note">Au début, les prévisions sont des habitudes classiques d'un restaurant de petite ville : du monde à midi et le soir, plus le mercredi après-midi et le week-end. Tes retours les corrigent peu à peu, et les récents comptent plus que les anciens.</p>
+    </div>
+
+    <div class="grp">
+      <h3>Mes retours</h3>
+      <p class="note" id="s-storage"></p>
+      <ul class="recent" id="s-recent"></ul>
+    </div>
+
+    <div class="grp">
+      <h3>Sauvegarde</h3>
+      <div class="fld"><label for="s-export">Copie ce texte pour garder une sauvegarde</label><textarea id="s-export" readonly rows="3"></textarea></div>
+      <div class="row2"><button class="btn alt" id="s-copy" type="button">Copier</button><span class="msg" id="s-copy-msg" role="status"></span></div>
+      <div class="fld"><label for="s-import">Colle une sauvegarde ici pour la récupérer</label><textarea id="s-import" rows="3"></textarea></div>
+      <div class="row2"><button class="btn alt" id="s-import-btn" type="button">Récupérer</button><span class="msg" id="s-import-msg" role="status"></span></div>
+    </div>
+
+    <div class="grp">
+      <h3>Tout effacer</h3>
+      <div class="row2" id="wipe-row"><button class="btn alt" id="s-wipe" type="button">Effacer tous mes retours</button></div>
+      <div class="row2" id="wipe-confirm" hidden>
+        <span class="note" id="wipe-text" style="align-self:center"></span>
+        <button class="btn danger" id="s-wipe-yes" type="button">Oui, tout effacer</button>
+        <button class="btn alt" id="s-wipe-no" type="button">Annuler</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden><span id="toast-t"></span><button type="button" id="toast-undo" hidden>Annuler</button></div>
+
+<script>
+(function () {
+  'use strict';
+  var DAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'];
+  var DAYS_FULL = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  var MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var LEVEL_NAME = { 1: 'Peu de monde', 2: 'Normal', 3: 'Beaucoup de monde' };
+  var LEVEL_SHORT = { 1: 'Peu', 2: 'Normal', 3: 'Beaucoup' };
+  var LEVEL_SUB = {
+    1: 'Pas d\'attente. Bon moment pour une pause ou pour ranger.',
+    2: 'Ça avance bien, sans file.',
+    3: 'Il y a la queue. Toute l\'équipe est au poste.'
+  };
+  var LEVEL_VAL = { 1: 15, 2: 50, 3: 85 };
+  var TRUST = { prudent: 4, equilibre: 2, reactif: 1 };
+  var DEFAULTS = { name: "McDonald's Châtel-St-Denis", open: 7, close: 23, trust: 'equilibre', smooth: true, crewMin: 3, crewMax: 12 };
+  var LS_E = 'hc.entries.v1', LS_S = 'hc.settings.v1';
+
+  var $ = function (s) { return document.querySelector(s); };
+  var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var dayIdx = function (dt) { return (dt.getDay() + 6) % 7; };
+  var lvlOf = function (v) { return v < 35 ? 1 : v < 65 ? 2 : 3; };
+  var cap = function (t) { return t.charAt(0).toUpperCase() + t.slice(1); };
+
+  /* ---------- Prévisions de départ ---------- */
+  function bump(x, c, h, w) { var z = (x - c) / w; return h * Math.exp(-z * z / 2); }
+  function baseline(d, h) {
+    var x = h + 0.5, v = 8;
+    if (d === 5) v += bump(x, 9, 14, 1.2) + bump(x, 12.6, 76, 1.3) + bump(x, 15.5, 38, 2) + bump(x, 19, 80, 1.4) + bump(x, 21.5, 34, 1.3);
+    else if (d === 6) v += bump(x, 10, 12, 1.3) + bump(x, 12.6, 72, 1.4) + bump(x, 15, 36, 2) + bump(x, 18.6, 64, 1.4) + bump(x, 21, 22, 1.3);
+    else if (d === 2) v += bump(x, 8, 20, 1) + bump(x, 12.5, 66, 1.1) + bump(x, 14.8, 42, 1.6) + bump(x, 18.7, 60, 1.2) + bump(x, 21.5, 24, 1.2);
+    else if (d === 4) v += bump(x, 8, 20, 1) + bump(x, 12.5, 74, 1.1) + bump(x, 15.8, 30, 1.5) + bump(x, 19, 76, 1.5) + bump(x, 21.8, 40, 1.3);
+    else v += bump(x, 8, 24, 1) + bump(x, 12.5, 72, 1.1) + bump(x, 15.8, 28, 1.5) + bump(x, 18.8, 62, 1.2) + bump(x, 21.5, 22, 1.2);
+    return Math.max(4, Math.min(100, Math.round(v)));
+  }
+
+  /* ---------- État ---------- */
+  var settings = Object.assign({}, DEFAULTS);
+  var entries = [];
+  var mode = 'local';
+  var dbRef = null;
+  var grid = null;
+  var ui = { day: dayIdx(new Date()), sel: null, tab: 'now' };
+  var settingsQueue = Promise.resolve();
+
+  function lsGet(k, fb) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : fb; } catch (e) { return fb; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
+  function cleanSettings(s) {
+    var o = Object.assign({}, DEFAULTS, s || {});
+    o.name = String(o.name || DEFAULTS.name).slice(0, 60);
+    o.open = Math.min(12, Math.max(5, parseInt(o.open, 10) || DEFAULTS.open));
+    o.close = Math.min(24, Math.max(16, parseInt(o.close, 10) || DEFAULTS.close));
+    if (!TRUST[o.trust]) o.trust = DEFAULTS.trust;
+    o.smooth = o.smooth !== false;
+    o.crewMin = Math.min(8, Math.max(1, parseInt(o.crewMin, 10) || DEFAULTS.crewMin));
+    o.crewMax = Math.min(30, Math.max(4, parseInt(o.crewMax, 10) || DEFAULTS.crewMax));
+    if (o.crewMax <= o.crewMin) o.crewMax = o.crewMin + 1;
+    return o;
+  }
+  function validEntry(e) { return e && isFinite(e.t) && e.t > 0 && (e.level === 1 || e.level === 2 || e.level === 3); }
+  function uid() { return 'l' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  settings = cleanSettings(lsGet(LS_S, {}));
+  entries = (lsGet(LS_E, []) || []).filter(validEntry);
+
+  function hours() { var a = []; for (var h = settings.open; h < settings.close; h++) a.push(h); return a; }
+
+  /* ---------- Calcul ---------- */
+  function computeGrid() {
+    var k = TRUST[settings.trust];
+    var num = [], den = [], cnt = [], d, h;
+    for (d = 0; d < 7; d++) { num.push(new Array(24).fill(0)); den.push(new Array(24).fill(0)); cnt.push(new Array(24).fill(0)); }
+    var now = Date.now();
+    entries.forEach(function (e) {
+      var dt = new Date(e.t), dd = dayIdx(dt), hh = dt.getHours();
+      var age = Math.max(0, (now - e.t) / 864e5);
+      var w = Math.pow(0.5, age / 90), v = LEVEL_VAL[e.level];
+      num[dd][hh] += w * v; den[dd][hh] += w; cnt[dd][hh]++;
+      if (settings.smooth) [-1, 1].forEach(function (s) {
+        var h2 = hh + s;
+        if (h2 >= 0 && h2 < 24) { num[dd][h2] += w * 0.5 * v; den[dd][h2] += w * 0.5; }
+      });
+    });
+    var g = { est: [], base: [], n: cnt };
+    for (d = 0; d < 7; d++) {
+      g.est.push([]); g.base.push([]);
+      for (h = 0; h < 24; h++) {
+        var b = baseline(d, h);
+        g.base[d].push(b);
+        g.est[d].push(Math.round((b * k + num[d][h]) / (k + den[d][h])));
+      }
+    }
+    return g;
+  }
+  function windows(list, pred) {
+    var out = [], start = null, prev = null;
+    list.forEach(function (x) {
+      if (pred(x.v)) { if (start === null) start = x.h; prev = x.h; }
+      else if (start !== null) { out.push(start + 'h–' + (prev + 1) + 'h'); start = null; }
+    });
+    if (start !== null) out.push(start + 'h–' + (prev + 1) + 'h');
+    return out;
+  }
+  function crewOf(v) { return Math.round(settings.crewMin + (settings.crewMax - settings.crewMin) * v / 100); }
+
+  /* ---------- Rendu ---------- */
+  function fmtWhen(t) {
+    var dt = new Date(t);
+    return DAYS[dayIdx(dt)] + '. ' + dt.getDate() + ' ' + MONTHS[dt.getMonth()] + ' à ' + dt.getHours() + 'h';
+  }
+  function pill(v) { return '<span class="pill"><i style="--p:' + v + '"></i>' + LEVEL_NAME[lvlOf(v)] + '</span>'; }
+  function lines(rows) { return rows.map(function (r) { return '<div><dt>' + r[0] + '</dt><dd>' + r[1] + '</dd></div>'; }).join(''); }
+
+  function renderNow() {
+    var now = new Date(), d = dayIdx(now), h = now.getHours();
+    var inRange = h >= settings.open && h < settings.close;
+    $('#resto').textContent = settings.name;
+    $('#n-when').textContent = cap(DAYS_FULL[d]) + ', ' + pad(h) + ':' + pad(now.getMinutes());
+    var slots = [], dd = d, hh = h, i;
+    for (i = 0; i < 48 && slots.length < 8; i++) {
+      if (hh >= settings.open && hh < settings.close) slots.push({ d: dd, h: hh, tom: dd !== d, v: grid.est[dd][hh] });
+      hh++; if (hh >= 24) { hh = 0; dd = (dd + 1) % 7; }
+    }
+    var v = grid.est[d][h];
+    if (inRange) {
+      $('#n-dot').style.setProperty('--p', v);
+      $('#n-lvl').textContent = LEVEL_NAME[lvlOf(v)];
+      $('#n-sub').textContent = LEVEL_SUB[lvlOf(v)];
+    } else {
+      $('#n-dot').style.setProperty('--p', 0);
+      $('#n-lvl').textContent = 'Fermé';
+      $('#n-sub').textContent = 'Hors des heures d\'ouverture réglées.';
+    }
+    var calm = null;
+    slots.forEach(function (s, idx) { if (!calm && (idx > 0 || !inRange) && lvlOf(s.v) === 1) calm = s; });
+    $('#n-next').textContent = calm ? 'Prochain moment calme : ' + calm.h + 'h' + (calm.tom ? ' demain' : '') + '.' : (slots.length ? 'Pas de moment vraiment calme dans les prochaines heures.' : '');
+    $('#strip').innerHTML = slots.map(function (s, idx) {
+      return '<div class="mini' + (idx === 0 && inRange ? ' first' : '') + '" role="img" aria-label="' + s.h + 'h : ' + LEVEL_NAME[lvlOf(s.v)] + '"><span class="m-bar"><i style="height:' + Math.max(s.v, 5) + '%;--p:' + s.v + '"></i></span><em>' + (idx === 0 && inRange ? 'Auj.' : s.h + 'h') + '</em></div>';
+    }).join('');
+    var n = entries.length;
+    $('#who').textContent = n ? 'Les prévisions tiennent compte de ' + n + ' retour' + (n > 1 ? 's' : '') + '.' : 'Pour l\'instant, ce sont les habitudes classiques d\'un restaurant. Chaque retour les améliore.';
+  }
+
+  function renderEntryForm() {
+    var dsel = $('#o-day'), hsel = $('#o-hour');
+    var dv = dsel.value, hv = hsel.value;
+    if (!dsel.options.length) {
+      dsel.innerHTML = DAYS_FULL.map(function (n, i) { return '<option value="' + i + '">' + n + '</option>'; }).join('');
+      dsel.value = String(dayIdx(new Date()));
+    } else dsel.value = dv;
+    hsel.innerHTML = hours().map(function (h) { return '<option value="' + h + '">' + h + 'h–' + (h + 1) + 'h</option>'; }).join('');
+    var cur = new Date().getHours();
+    hsel.value = hv && hours().indexOf(+hv) >= 0 ? hv : String(Math.min(Math.max(cur, settings.open), settings.close - 1));
+  }
+
+  function clampSel() {
+    if (!hours().length) return;
+    if (!ui.sel) { var n = new Date(); ui.sel = { d: dayIdx(n), h: n.getHours() }; }
+    if (ui.sel.h < settings.open) ui.sel.h = settings.open;
+    if (ui.sel.h >= settings.close) ui.sel.h = settings.close - 1;
+  }
+
+  function renderHeat() {
+    var hs = hours(), el = $('#heat'), now = new Date(), td = dayIdx(now), th = now.getHours();
+    clampSel();
+    el.style.setProperty('--cols', hs.length);
+    var html = '<div></div>';
+    hs.forEach(function (h) { html += '<div class="h-hd">' + (h % 2 === 0 ? h : '') + '</div>'; });
+    DAYS.forEach(function (dn, d) {
+      html += '<div class="h-day' + (d === td ? ' is-today' : '') + '">' + dn + '</div>';
+      hs.forEach(function (h) {
+        var v = grid.est[d][h];
+        var cls = 'cell' + (d === td && h === th ? ' now' : '') + (ui.sel && ui.sel.d === d && ui.sel.h === h ? ' sel' : '');
+        html += '<button type="button" class="' + cls + '" data-d="' + d + '" data-h="' + h + '" style="--p:' + v + '" aria-label="' + DAYS_FULL[d] + ' ' + h + 'h : ' + LEVEL_NAME[lvlOf(v)] + '"></button>';
+      });
+    });
+    el.innerHTML = html;
+  }
+
+  function renderDetail() {
+    var s = ui.sel; if (!s) return;
+    var v = grid.est[s.d][s.h], n = grid.n[s.d][s.h];
+    var txt = n ? 'Prévision corrigée avec ' + n + ' retour' + (n > 1 ? 's' : '') + ' sur cette heure.' : 'Prévision habituelle, pas encore de retour sur cette heure.';
+    $('#detail').innerHTML = '<div class="d-t"><strong>' + cap(DAYS_FULL[s.d]) + ', ' + s.h + 'h–' + (s.h + 1) + 'h</strong>' + pill(v) + '</div><p class="note">' + txt + '</p>';
+  }
+
+  function renderChips() {
+    var td = dayIdx(new Date());
+    var html = DAYS_FULL.map(function (n, i) {
+      return '<button type="button" class="chip" role="radio" aria-checked="' + (i === ui.day) + '" data-d="' + i + '">' + (i === td ? 'Auj. ' : '') + DAYS[i] + '</button>';
+    }).join('');
+    document.querySelectorAll('[data-chips]').forEach(function (el) { el.innerHTML = html; });
+  }
+
+  function dayList(d) { return hours().map(function (h) { return { h: h, v: grid.est[d][h] }; }); }
+
+  function renderBest() {
+    var d = ui.day, list = dayList(d);
+    var calm = windows(list, function (v) { return v < 35; });
+    var busy = windows(list, function (v) { return v >= 65; });
+    $('#best').innerHTML = lines([
+      [cap(DAYS_FULL[d]) + ' : peu de monde', calm.length ? calm.join(', ') : 'aucun moment vraiment calme'],
+      [cap(DAYS_FULL[d]) + ' : beaucoup de monde', busy.length ? busy.join(', ') : 'jamais très chargé']
+    ]);
+  }
+
+  function renderBrief() {
+    var hs = hours();
+    if (!hs.length) { $('#brief').innerHTML = ''; return; }
+    var d, dayAvg = [], hourAvg = {};
+    for (d = 0; d < 7; d++) {
+      var s = 0;
+      hs.forEach(function (hh) { s += grid.est[d][hh]; hourAvg[hh] = (hourAvg[hh] || 0) + grid.est[d][hh] / 7; });
+      dayAvg.push(s / hs.length);
+    }
+    var minD = 0, maxD = 0;
+    dayAvg.forEach(function (v, i) { if (v < dayAvg[minD]) minD = i; if (v > dayAvg[maxD]) maxD = i; });
+    var minH = hs[0], maxH = hs[0];
+    hs.forEach(function (hh) { if (hourAvg[hh] < hourAvg[minH]) minH = hh; if (hourAvg[hh] > hourAvg[maxH]) maxH = hh; });
+    $('#brief').innerHTML = lines([
+      ['Jour le plus calme', DAYS_FULL[minD]],
+      ['Jour le plus chargé', DAYS_FULL[maxD]],
+      ['Heure la plus calme', minH + 'h–' + (minH + 1) + 'h'],
+      ['Heure la plus chargée', maxH + 'h–' + (maxH + 1) + 'h'],
+      ['Retours enregistrés', String(entries.length)]
+    ]);
+    $('#brief-note').textContent = entries.length ? '' : 'Pas encore de retour : tout vient des habitudes classiques. Utilise « Tu es au restaurant ? » sur l\'écran Maintenant.';
+  }
+
+  function renderCrew() {
+    var d = ui.day, td = dayIdx(new Date()), th = new Date().getHours();
+    var list = dayList(d);
+    var busy = windows(list, function (v) { return v >= 65; });
+    var calm = windows(list, function (v) { return v < 35; });
+    var sorted = list.slice().sort(function (a, b) { return a.v - b.v || a.h - b.h; });
+    var breaks = [];
+    sorted.forEach(function (x) { if (breaks.length < 2 && breaks.every(function (y) { return Math.abs(y.h - x.h) > 1; })) breaks.push(x); });
+    breaks.sort(function (a, b) { return a.h - b.h; });
+    $('#crew-sum').innerHTML = lines([
+      ['Beaucoup de monde', busy.length ? busy.join(', ') : 'jamais très chargé'],
+      ['Peu de monde', calm.length ? calm.join(', ') : 'aucun moment vraiment calme'],
+      ['Meilleures heures pour une pause', breaks.length ? breaks.map(function (x) { return x.h + 'h–' + (x.h + 1) + 'h'; }).join(', ') : '–']
+    ]);
+    $('#crew').innerHTML = list.map(function (x) {
+      var c = crewOf(x.v);
+      return '<div class="crew-row' + (d === td && x.h === th ? ' cur' : '') + '" role="row"><span class="t">' + x.h + 'h</span><span class="crew-bar"><i style="width:' + Math.max(4, c / settings.crewMax * 100) + '%;--p:' + x.v + '"></i></span><b>' + c + ' pers.</b><em>' + LEVEL_SHORT[lvlOf(x.v)] + '</em></div>';
+    }).join('');
+  }
+
+  function renderTabs() {
+    document.querySelectorAll('.tab').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.tab === ui.tab)); });
+    ['now', 'week', 'team'].forEach(function (t) { $('#p-' + t).hidden = t !== ui.tab; });
+  }
+
+  function renderSettings() {
+    function setVal(el, v) { if (document.activeElement !== el) el.value = v; }
+    setVal($('#s-name'), settings.name);
+    var so = $('#s-open'), sc = $('#s-close'), cmin = $('#s-cmin'), cmax = $('#s-cmax'), i, o = '', c = '', a = '', b2 = '';
+    for (i = 5; i <= 12; i++) o += '<option value="' + i + '">' + i + 'h</option>';
+    for (i = 16; i <= 24; i++) c += '<option value="' + i + '">' + (i === 24 ? 'minuit' : i + 'h') + '</option>';
+    for (i = 1; i <= 8; i++) a += '<option value="' + i + '">' + i + ' pers.</option>';
+    for (i = 4; i <= 30; i++) b2 += '<option value="' + i + '">' + i + ' pers.</option>';
+    if (!so.options.length) so.innerHTML = o;
+    if (!sc.options.length) sc.innerHTML = c;
+    if (!cmin.options.length) cmin.innerHTML = a;
+    if (!cmax.options.length) cmax.innerHTML = b2;
+    so.value = String(settings.open); sc.value = String(settings.close);
+    cmin.value = String(settings.crewMin); cmax.value = String(settings.crewMax);
+    $('#s-trust').value = settings.trust;
+    $('#s-smooth').checked = settings.smooth;
+    $('#s-storage').textContent = mode === 'db'
+      ? 'Tes retours sont gardés avec la page, tu les retrouves sur tes autres appareils.'
+      : 'Tes retours sont gardés dans ce navigateur seulement. Pense à la sauvegarde ci-dessous.';
+    var recent = entries.slice().sort(function (a1, b1) { return b1.t - a1.t; }).slice(0, 12);
+    $('#s-recent').innerHTML = recent.length ? recent.map(function (e) {
+      return '<li><span>' + fmtWhen(e.t) + ' · ' + LEVEL_NAME[e.level] + '</span><button type="button" data-del="' + e.id + '">Supprimer</button></li>';
+    }).join('') : '<li class="note">Aucun retour pour l\'instant.</li>';
+    $('#s-export').value = JSON.stringify({ v: 1, entries: entries.map(function (e) { return { t: e.t, level: e.level }; }) });
+  }
+
+  function renderAll() {
+    grid = computeGrid();
+    renderTabs(); renderNow(); renderEntryForm(); renderHeat(); renderDetail(); renderChips(); renderBest(); renderBrief(); renderCrew();
+    if (!$('#sheet').hidden) renderSettings();
+  }
+
+  /* ---------- Stockage ---------- */
+  function persistLocal() { lsSet(LS_E, entries.map(function (e) { return { id: e.id, t: e.t, level: e.level }; })); }
+  function saveSettings() {
+    lsSet(LS_S, settings);
+    if (dbRef) {
+      var snap = Object.assign({}, settings);
+      settingsQueue = settingsQueue.then(function () { return dbRef.doc('settings/main').set(snap); }).catch(function () { toast('Réglages gardés sur cet appareil seulement.'); });
+    }
+  }
+  function addEntry(t, level) {
+    var e = { t: t, level: level };
+    if (dbRef && mode === 'db') return dbRef.collection('entries').add(e).then(function (ref) { return ref.id; });
+    e.id = uid(); entries.push(e); persistLocal(); renderAll();
+    return Promise.resolve(e.id);
+  }
+  function delEntry(id) {
+    if (dbRef && mode === 'db') return dbRef.collection('entries').doc(id).delete();
+    entries = entries.filter(function (e) { return e.id !== id; }); persistLocal(); renderAll();
+    return Promise.resolve();
+  }
+  function connectDb() {
+    var c = window.claude;
+    if (!c || !c.use) return;
+    Promise.resolve(c.use('db')).then(function (db) {
+      if (!db) return;
+      dbRef = db;
+      db.collection('entries').orderBy('t', 'desc').limit(1000).onSnapshot(function (snap) {
+        mode = 'db';
+        entries = snap.docs.map(function (d) { var x = d.data() || {}; return { id: d.id, t: +x.t, level: +x.level }; }).filter(validEntry);
+        renderAll();
+      }, function () { mode = 'local'; entries = (lsGet(LS_E, []) || []).filter(validEntry); renderAll(); });
+      db.doc('settings/main').onSnapshot(function (snap) {
+        if (snap.exists) { settings = cleanSettings(snap.data()); lsSet(LS_S, settings); renderAll(); }
+      }, function () {});
+    }).catch(function () {});
+  }
+
+  /* ---------- Message ---------- */
+  var toastTimer = null, undoFn = null;
+  function toast(msg, undo) {
+    $('#toast-t').textContent = msg;
+    undoFn = undo || null;
+    $('#toast-undo').hidden = !undo;
+    $('#toast').hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { $('#toast').hidden = true; undoFn = null; }, 6000);
+  }
+  $('#toast-undo').addEventListener('click', function () { if (undoFn) undoFn(); $('#toast').hidden = true; undoFn = null; });
+
+  /* ---------- Événements ---------- */
+  document.querySelectorAll('.tab').forEach(function (b) {
+    b.addEventListener('click', function () { ui.tab = b.dataset.tab; renderTabs(); });
+  });
+
+  document.querySelectorAll('.vote').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var level = +b.dataset.level;
+      addEntry(Date.now(), level).then(function (id) {
+        toast('Merci ! Noté : ' + LEVEL_NAME[level], function () { delEntry(id); });
+      }).catch(function () { toast('Impossible d\'enregistrer ce retour.'); });
+    });
+  });
+
+  $('#o-add').addEventListener('click', function () {
+    var d = +$('#o-day').value, h = +$('#o-hour').value, level = +$('#o-level').value;
+    var dt = new Date(); dt.setHours(h, 30, 0, 0);
+    dt.setDate(dt.getDate() - ((dayIdx(new Date()) - d + 7) % 7));
+    if (dt.getTime() > Date.now()) dt.setDate(dt.getDate() - 7);
+    addEntry(dt.getTime(), level).then(function (id) {
+      toast('Ajouté : ' + LEVEL_NAME[level] + ', ' + DAYS_FULL[d] + ' ' + h + 'h', function () { delEntry(id); });
+    }).catch(function () { toast('Impossible d\'ajouter ce retour.'); });
+  });
+
+  $('#heat').addEventListener('click', function (ev) {
+    var c = ev.target.closest('.cell'); if (!c) return;
+    ui.sel = { d: +c.dataset.d, h: +c.dataset.h }; ui.day = ui.sel.d;
+    renderHeat(); renderDetail(); renderChips(); renderBest(); renderCrew();
+  });
+  document.addEventListener('click', function (ev) {
+    var c = ev.target.closest('.chip'); if (!c) return;
+    ui.day = +c.dataset.d; renderChips(); renderBest(); renderCrew();
+  });
+
+  var sheet = $('#sheet');
+  $('#open-settings').addEventListener('click', function () {
+    sheet.hidden = false; document.body.style.overflow = 'hidden'; renderSettings(); $('#close-settings').focus();
+  });
+  function closeSheet() { sheet.hidden = true; document.body.style.overflow = ''; $('#open-settings').focus(); }
+  $('#close-settings').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !sheet.hidden) closeSheet(); });
+
+  $('#s-name').addEventListener('change', function () { settings.name = this.value.trim() || DEFAULTS.name; saveSettings(); renderAll(); });
+  $('#s-open').addEventListener('change', function () {
+    settings.open = +this.value; if (settings.close <= settings.open + 3) settings.close = Math.min(24, settings.open + 4);
+    saveSettings(); renderAll();
+  });
+  $('#s-close').addEventListener('change', function () {
+    settings.close = +this.value; if (settings.open >= settings.close - 3) settings.open = Math.max(5, settings.close - 4);
+    saveSettings(); renderAll();
+  });
+  $('#s-cmin').addEventListener('change', function () {
+    settings.crewMin = +this.value; if (settings.crewMax <= settings.crewMin) settings.crewMax = settings.crewMin + 1;
+    saveSettings(); renderAll();
+  });
+  $('#s-cmax').addEventListener('change', function () {
+    settings.crewMax = +this.value; if (settings.crewMin >= settings.crewMax) settings.crewMin = settings.crewMax - 1;
+    saveSettings(); renderAll();
+  });
+  $('#s-trust').addEventListener('change', function () { settings.trust = this.value; saveSettings(); renderAll(); });
+  $('#s-smooth').addEventListener('change', function () { settings.smooth = this.checked; saveSettings(); renderAll(); });
+
+  $('#s-recent').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-del]'); if (!b) return;
+    delEntry(b.dataset.del).catch(function () { toast('Suppression impossible.'); });
+  });
+
+  $('#s-copy').addEventListener('click', function () {
+    var ta = $('#s-export'), msg = $('#s-copy-msg');
+    function fallback() { ta.focus(); ta.select(); msg.textContent = 'Texte sélectionné : copie-le à la main.'; }
+    try { navigator.clipboard.writeText(ta.value).then(function () { msg.textContent = 'Copié.'; }, fallback); } catch (e) { fallback(); }
+  });
+
+  $('#s-import-btn').addEventListener('click', function () {
+    var msg = $('#s-import-msg'), raw = $('#s-import').value.trim();
+    if (!raw) { msg.textContent = 'Colle d\'abord une sauvegarde.'; return; }
+    var data;
+    try { data = JSON.parse(raw); } catch (e) { msg.textContent = 'Ce texte n\'est pas une sauvegarde valide.'; return; }
+    var list = (Array.isArray(data) ? data : data && data.entries) || [];
+    var have = {}; entries.forEach(function (e) { have[e.t + ':' + e.level] = 1; });
+    var fresh = list.map(function (x) { return { t: +x.t, level: +x.level }; }).filter(function (x) { return validEntry(x) && !have[x.t + ':' + x.level]; }).slice(0, 500);
+    if (!fresh.length) { msg.textContent = 'Rien de nouveau à récupérer.'; return; }
+    msg.textContent = 'En cours…';
+    var p = Promise.resolve();
+    fresh.forEach(function (x) { p = p.then(function () { return addEntry(x.t, x.level); }); });
+    p.then(function () { msg.textContent = fresh.length + ' retour' + (fresh.length > 1 ? 's' : '') + ' récupéré' + (fresh.length > 1 ? 's' : '') + '.'; $('#s-import').value = ''; })
+      .catch(function () { msg.textContent = 'Interrompu.'; });
+  });
+
+  $('#s-wipe').addEventListener('click', function () {
+    $('#wipe-text').textContent = entries.length ? entries.length + ' retour' + (entries.length > 1 ? 's' : '') + ' seront effacés pour de bon.' : 'Il n\'y a rien à effacer.';
+    $('#wipe-row').hidden = true; $('#wipe-confirm').hidden = false;
+  });
+  $('#s-wipe-no').addEventListener('click', function () { $('#wipe-row').hidden = false; $('#wipe-confirm').hidden = true; });
+  $('#s-wipe-yes').addEventListener('click', function () {
+    var ids = entries.map(function (e) { return e.id; }), p = Promise.resolve();
+    ids.forEach(function (id) { p = p.then(function () { return dbRef && mode === 'db' ? dbRef.collection('entries').doc(id).delete() : null; }); });
+    p.then(function () { if (!(dbRef && mode === 'db')) { entries = []; persistLocal(); renderAll(); } toast('Tout est effacé.'); })
+      .catch(function () { toast('Effacement incomplet.'); });
+    $('#wipe-row').hidden = false; $('#wipe-confirm').hidden = true;
+  });
+
+  /* ---------- Démarrage ---------- */
+  renderAll();
+  connectDb();
+  setTimeout(function () {
+    var sp = $('#splash'); if (!sp) return;
+    sp.classList.add('out');
+    setTimeout(function () { sp.hidden = true; }, 450);
+  }, 1500);
+  setInterval(function () { if (grid) renderNow(); }, 60000);
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+}
+</script>
+</body>
+</html>
